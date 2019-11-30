@@ -68,12 +68,14 @@ sub _parse_join_clauses {
 
     my @joins;
     foreach my $join_clause ( @$join_exprs ) {
-        my($left_fileno, $left_column, $operator, $right_fileno, $right_column) = $join_clause =~ m/(\d+):(\d+)($operators)(\d+):(\d+)/;
+        my($left_fileno, $left_column, $operator, $right_fileno, $right_column) = $join_clause =~ m/(\d+):(\w)($operators)(\d+):(\w)/;
         unless (defined $left_fileno) {
             croak "Can't parse join: $join_clause";
         }
 
+        $left_column = _xlate_column_letter_to_idx($left_column);
         $left_column += $column_adjustment[$left_fileno - 1];
+        $right_column = _xlate_column_letter_to_idx($right_column);
 
         my $join = CsvSelect::Where->new("${left_fileno}:${left_column}", $operator, "${right_fileno}:${right_column}");
         my $join_idx = _max_fileno($left_fileno, $right_fileno) - 1; # -1 because it's 0-based
@@ -82,6 +84,18 @@ sub _parse_join_clauses {
     }
 
     return @joins;
+}
+
+
+my %letters = ( (map { $_ => ord($_) - ord('A') } ( 'A' .. 'Z' )),
+                (map { $_ => ord($_) - ord('a') } ( 'a' .. 'Z' )) );
+sub _xlate_column_letter_to_idx {
+    my $letter = shift;
+    unless (exists $letters{$letter}) {
+        croak "Unknown column name: $letter";
+    }
+    print "Column $letter is idx $letters{$letter}\n";
+    return $letters{$letter};
 }
 
 

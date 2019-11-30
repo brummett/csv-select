@@ -39,8 +39,6 @@ sub eq {
 
     my(undef, $left_col) = split(':', $left);
     my(undef, $right_col) = split(':', $right);
-    $left_col--;
-    $right_col--;
     return sub {
         my $left_val = $_[0]->[$left_col];
         my $right_val = $_[1]->[$right_col];
