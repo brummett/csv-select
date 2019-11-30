@@ -9,18 +9,20 @@ use CsvSelect::File;
 use CsvSelect::ResultSet;
 
 sub run {
-    my @args = @_;
+    my($self, @args) = @_;
 
-    my($where, $join, $show);
-    GetOptionsFromArray(\@args,
-        'where=s' => \$where,
-        'join=s'  => \$join,
+    my($where, @joins, $show);
+    my @remaining = GetOptionsFromArray(\@args,
+    #    'where=s' => \$where,
+        'join=s'  => \@joins,
         'show=s'  => \$show,
     );
 
-    my @files = map { CsvSelect::File->resultset($_) } @ARGV;
+    my($file, @files) = map { CsvSelect::File->resultset($_) } @args;
 
-    $files[0]->foreach(sub {
+    my $result = $file->inner_join(\@joins, @files);
+
+    $result->foreach(sub {
         my $row = shift;
         print join(', ', @$row),"\n";
     });
