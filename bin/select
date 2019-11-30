@@ -1,0 +1,6 @@
+#!/usr/bin/perl
+
+use CsvSelect;
+
+CsvSelect->run(@ARGV);
+
