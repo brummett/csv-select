@@ -94,8 +94,14 @@ sub _outer_join {
     my $next_resultset = shift @resultsets;
     return $self unless $next_resultset;
 
-    my @rows;
-    my @right_rows_not_matching = (1) x $next_resultset->count;
+    my @rows;  # Rows for the final resultset
+
+    # Rownums in the next_resultset (right part of the join) that haven't
+    # joined to anything yet
+    my @right_rows_not_matching;
+    for (my $i = 0; $i < $next_resultset->count; $i++) {
+        $right_rows_not_matching[$i] = $i;
+    }
 
     $self->foreach(sub {
         my $left_row = shift;
@@ -110,7 +116,7 @@ sub _outer_join {
             }
             $left_row_matched = 1;
             push @rows, [ @$left_row, @$right_row ];
-            $right_rows_not_matching[$right_row_idx] = undef;
+            $right_rows_not_matching[$right_row_idx] = undef;  # mark this row jas successfully joined to something
         });
 
         if ($is_leftjoin and !$left_row_matched) {
