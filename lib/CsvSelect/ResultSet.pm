@@ -17,13 +17,23 @@ sub foreach {
     my($self, $code) = @_;
 
     for (my $i = 0; $i < @$self; $i++) {
-        $code->($self->[$i]);
+        $code->($self->[$i], $i);
     }
 }
 
 sub width {
     my $self = shift;
     return scalar(@{$self->[0]});
+}
+
+sub count {
+    my $self = shift;
+    scalar(@$self);
+}
+
+sub get_row {
+    my($self, $i) = @_;
+    return $self->[$i];
 }
 
 sub inner_join {
@@ -51,6 +61,55 @@ sub _inner_join {
             push @rows, [ @$left_row, @$right_row ];
         });
     });
+
+    my $new_resultset = __PACKAGE__->new(\@rows);
+    return $new_resultset->_inner_join($join_count+1, $joins, @resultsets);
+}
+
+
+sub outer_join {
+    my($self, $join_clauses, @resultsets) = @_;
+
+    my @joins = $self->_parse_join_clauses($join_clauses);
+    $self->_outer_join(1, \@joins, @resultsets);
+}
+
+sub _outer_join {
+    my($self, $join_count, $joins, @resultsets) = @_;
+
+    my $next_resultset = shift @resultsets;
+    return $self unless $next_resultset;
+
+    my @rows;
+    my @right_rows_not_matching = (1) x $next_resultset->count;
+
+    $self->foreach(sub {
+        my $left_row = shift;
+
+        my $left_row_matched;
+        $next_resultset->foreach( sub {
+            my $right_row = shift;
+            my $right_row_idx = shift;
+
+            foreach my $join ( @{ $joins->[$join_count] } ) {
+                return unless ( $join->($left_row, $right_row) );
+            }
+            $left_row_matched = 1;
+            push @rows, [ @$left_row, @$right_row ];
+            $right_rows_not_matching[$right_row_idx] = undef;
+        });
+
+        unless ($left_row_matched) {
+            push @rows, [ @$left_row, ('') x  $next_resultset->width()  ];
+        }
+    });
+
+    my @left_row_nulls = ( '' ) x $self->width();
+    push @rows,
+        map { [ @left_row_nulls, @$_ ] }
+        map { $next_resultset->get_row($_) }
+        grep { defined } @right_rows_not_matching
+    ;
 
     my $new_resultset = __PACKAGE__->new(\@rows);
     return $new_resultset->_inner_join($join_count+1, $joins, @resultsets);

@@ -20,7 +20,7 @@ sub run {
 
     my($file, @files) = map { CsvSelect::File->resultset($_) } @args;
 
-    my $result = $file->inner_join(\@joins, @files);
+    my $result = $file->outer_join(\@joins, @files);
 
     $result->foreach(sub {
         my $row = shift;
