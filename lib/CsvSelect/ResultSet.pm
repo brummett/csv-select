@@ -135,7 +135,7 @@ sub _outer_join {
 sub _parse_join_clauses {
     my($self, $join_exprs, @resultsets) = @_;
 
-    my @column_adjustment = $self->_resolve_column_indexes_for_final_resultset(@resultsets);
+    my @column_adjustment = $self->resolve_column_indexes_for_final_resultset(@resultsets);
 
     my $operators = qr(=|<|>|<=|>=);
 
@@ -180,8 +180,11 @@ sub _max_fileno {
 
 # As we join more resultsets on the right, we need to shift the column indexes
 # up to account for the columns already joined on the left
-sub _resolve_column_indexes_for_final_resultset {
-    my($self, @resultsets) = @_;
+# This would probably be better solved by letting a ResultSet's columns have
+# aliases that propogate to derived Resultsets - then we'd be able to refer
+# to them by their name.
+sub resolve_column_indexes_for_final_resultset {
+    my($class, @resultsets) = @_;
 
     my @column_adjustment = ( 0 );
     for (my $i = 1; $i < @resultsets; $i++) {
