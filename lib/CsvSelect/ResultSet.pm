@@ -42,15 +42,13 @@ sub _inner_join {
     my @rows;
     $self->foreach(sub {
         my $left_row = shift;
-        my $keep;
         $next_resultset->foreach( sub {
             my $right_row = shift;
 
             foreach my $join ( @{ $joins->[$join_count] } ) {
                 return unless $join->($left_row, $right_row);
             }
-            $keep = 1;
-            push @rows, [ @$left_row, @$right_row ] if $keep;
+            push @rows, [ @$left_row, @$right_row ];
         });
     });
 
