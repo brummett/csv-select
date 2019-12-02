@@ -71,11 +71,25 @@ sub outer_join {
     my($self, $join_clauses, @resultsets) = @_;
 
     my @joins = $self->_parse_join_clauses($join_clauses);
-    $self->_outer_join(1, \@joins, @resultsets);
+    $self->_outer_join(1, \@joins, 1, 1, @resultsets);
+}
+
+sub left_join {
+    my($self, $join_clauses, @resultsets) = @_;
+
+    my @joins = $self->_parse_join_clauses($join_clauses);
+    $self->_outer_join(1, \@joins, 1, undef, @resultsets);
+}
+
+sub right_join {
+    my($self, $join_clauses, @resultsets) = @_;
+
+    my @joins = $self->_parse_join_clauses($join_clauses);
+    $self->_outer_join(1, \@joins, undef, 1, @resultsets);
 }
 
 sub _outer_join {
-    my($self, $join_count, $joins, @resultsets) = @_;
+    my($self, $join_count, $joins, $is_leftjoin, $is_rightjoin, @resultsets) = @_;
 
     my $next_resultset = shift @resultsets;
     return $self unless $next_resultset;
@@ -99,17 +113,19 @@ sub _outer_join {
             $right_rows_not_matching[$right_row_idx] = undef;
         });
 
-        unless ($left_row_matched) {
+        if ($is_leftjoin and !$left_row_matched) {
             push @rows, [ @$left_row, ('') x  $next_resultset->width()  ];
         }
     });
 
-    my @left_row_nulls = ( '' ) x $self->width();
-    push @rows,
-        map { [ @left_row_nulls, @$_ ] }
-        map { $next_resultset->get_row($_) }
-        grep { defined } @right_rows_not_matching
-    ;
+    if ($is_rightjoin) {
+        my @left_row_nulls = ( '' ) x $self->width();
+        push @rows,
+            map { [ @left_row_nulls, @$_ ] }
+            map { $next_resultset->get_row($_) }
+            grep { defined } @right_rows_not_matching
+        ;
+    }
 
     my $new_resultset = __PACKAGE__->new(\@rows);
     return $new_resultset->_inner_join($join_count+1, $joins, @resultsets);
