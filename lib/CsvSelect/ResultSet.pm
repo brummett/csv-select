@@ -23,7 +23,7 @@ sub foreach {
 
 sub width {
     my $self = shift;
-    return scalar($self->[0]);
+    return scalar(@{$self->[0]});
 }
 
 sub inner_join {
