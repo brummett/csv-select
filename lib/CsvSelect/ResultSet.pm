@@ -10,30 +10,43 @@ use CsvSelect::Where;
 sub new {
     my($class, $rows) = @_;
 
-    return bless($rows, $class);
+    unless ($rows and ref($rows) eq 'ARRAY') {
+        croak('$rows must be a listref');
+    }
+
+    my $self = {
+        rows => $rows,
+    };
+    return bless($self, $class);
+}
+
+
+sub rows {
+    return shift->{rows};
 }
 
 sub foreach {
     my($self, $code) = @_;
 
-    for (my $i = 0; $i < @$self; $i++) {
-        $code->($self->[$i], $i);
+    my $rows = $self->rows;
+    for (my $i = 0; $i < @$rows; $i++) {
+        $code->($rows->[$i], $i);
     }
 }
 
 sub width {
     my $self = shift;
-    return scalar(@{$self->[0]});
+    return scalar(@{$self->rows->[0]});
 }
 
 sub count {
     my $self = shift;
-    scalar(@$self);
+    scalar(@{$self->rows});
 }
 
 sub get_row {
     my($self, $i) = @_;
-    return $self->[$i];
+    return $self->rows->[$i];
 }
 
 sub inner_join {
