@@ -18,7 +18,12 @@ sub run {
         'show=s'  => \$show,
     );
 
-    my($file, @files) = map { CsvSelect::File->resultset($_) } @args;
+    my @files;
+    for (my $i = 0; $i < @args; $i++) {
+        push @files, CsvSelect::File->resultset($args[$i], $i+1);
+    }
+    my $file = shift @files;
+    print "There are ",scalar(@files)," files\n";
 
     my $result = $file->outer_join(\@joins, @files);
 

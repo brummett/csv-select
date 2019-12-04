@@ -8,14 +8,17 @@ use Carp qw(croak);
 use CsvSelect::Where;
 
 sub new {
-    my($class, $rows) = @_;
+    my($class, $rows, $column_names) = @_;
 
     unless ($rows and ref($rows) eq 'ARRAY') {
         croak('$rows must be a listref');
     }
-
+    if (defined($column_names) and ref($column_names) ne 'ARRAY') {
+        croak('$column_names must be a listref');
+    }
     my $self = {
         rows => $rows,
+        column_names => $column_names || [],
     };
     return bless($self, $class);
 }
@@ -23,6 +26,32 @@ sub new {
 
 sub rows {
     return shift->{rows};
+}
+
+sub add_column_name {
+    my($self, $idx, $name) = @_;
+    my $list = $self->{column_names}->[$idx] ||= [];
+    push @$list, $name;
+}
+
+sub _column_names {
+    return shift->{column_names}
+}
+
+sub name_for_column_idx {
+    my($self, $idx) = @_;
+    return $self->{column_names}->[$idx]->[0];
+}
+
+sub column_idx_for_name {
+    my($self, $name) = @_;
+
+    for (my $idx = 0; $idx < @{ $self->{column_names} }; $idx++) {
+        foreach my $alias ( @{ $self->{column_names}->[$idx] } ) {
+            return $idx if $alias eq $name;
+        }
+    }
+    return;
 }
 
 sub foreach {
@@ -52,7 +81,7 @@ sub get_row {
 sub inner_join {
     my($self, $join_clauses, @resultsets) = @_;
 
-    my @joins = $self->_parse_join_clauses($join_clauses);
+    my @joins = $self->_parse_join_clauses($join_clauses, @resultsets);
     $self->_inner_join(1, \@joins, @resultsets);
 }
 
@@ -75,7 +104,9 @@ sub _inner_join {
         });
     });
 
-    my $new_resultset = __PACKAGE__->new(\@rows);
+    my @new_column_names = ( @{ $self->_column_names }, @{ $next_resultset->_column_names } );
+    my $new_resultset = __PACKAGE__->new(\@rows, \@new_column_names);
+
     return $new_resultset->_inner_join($join_count+1, $joins, @resultsets);
 }
 
@@ -83,21 +114,21 @@ sub _inner_join {
 sub outer_join {
     my($self, $join_clauses, @resultsets) = @_;
 
-    my @joins = $self->_parse_join_clauses($join_clauses);
+    my @joins = $self->_parse_join_clauses($join_clauses, @resultsets);
     $self->_outer_join(1, \@joins, 1, 1, @resultsets);
 }
 
 sub left_join {
     my($self, $join_clauses, @resultsets) = @_;
 
-    my @joins = $self->_parse_join_clauses($join_clauses);
+    my @joins = $self->_parse_join_clauses($join_clauses, @resultsets);
     $self->_outer_join(1, \@joins, 1, undef, @resultsets);
 }
 
 sub right_join {
     my($self, $join_clauses, @resultsets) = @_;
 
-    my @joins = $self->_parse_join_clauses($join_clauses);
+    my @joins = $self->_parse_join_clauses($join_clauses, @resultsets);
     $self->_outer_join(1, \@joins, undef, 1, @resultsets);
 }
 
@@ -146,15 +177,15 @@ sub _outer_join {
         ;
     }
 
-    my $new_resultset = __PACKAGE__->new(\@rows);
+    my @new_column_names = ( @{ $self->_column_names }, @{ $next_resultset->_column_names } );
+    my $new_resultset = __PACKAGE__->new(\@rows, \@new_column_names);
+
     return $new_resultset->_inner_join($join_count+1, $joins, @resultsets);
 }
 
 
 sub _parse_join_clauses {
     my($self, $join_exprs, @resultsets) = @_;
-
-    my @column_adjustment = $self->resolve_column_indexes_for_final_resultset(@resultsets);
 
     my $operators = qr(=|<|>|<=|>=);
 
@@ -165,11 +196,16 @@ sub _parse_join_clauses {
             croak "Can't parse join: $join_clause";
         }
 
-        $left_column = _xlate_column_letter_to_idx($left_column);
-        $left_column += $column_adjustment[$left_fileno - 1];
-        $right_column = _xlate_column_letter_to_idx($right_column);
+        ($left_column, $right_column) = (uc($left_column), uc($right_column));
+        my $left_join_expr = "${left_fileno}:${left_column}";
+        my $left_idx = $self->column_idx_for_name($left_join_expr);
+        croak "Unknown column named in join: $left_join_expr" unless (defined $left_idx);
 
-        my $join = CsvSelect::Where->new("${left_fileno}:${left_column}", $operator, "${right_fileno}:${right_column}");
+        my $right_join_expr = "${right_fileno}:${right_column}";
+        my $right_idx = $resultsets[0]->column_idx_for_name($right_join_expr);
+        croak "Unknown column named in join: $right_join_expr" unless (defined $right_idx);
+
+        my $join = CsvSelect::Where->new("${left_fileno}:${left_idx}", $operator, "${right_fileno}:${right_idx}");
         my $join_idx = _max_fileno($left_fileno, $right_fileno) - 1; # -1 because it's 0-based
         $joins[$join_idx] ||= [];
         push @{ $joins[$join_idx] }, $join;
@@ -178,38 +214,10 @@ sub _parse_join_clauses {
     return @joins;
 }
 
-
-my %letters = ( (map { $_ => ord($_) - ord('A') } ( 'A' .. 'Z' )),
-                (map { $_ => ord($_) - ord('a') } ( 'a' .. 'Z' )) );
-sub _xlate_column_letter_to_idx {
-    my $letter = shift;
-    unless (exists $letters{$letter}) {
-        croak "Unknown column name: $letter";
-    }
-    print "Column $letter is idx $letters{$letter}\n";
-    return $letters{$letter};
-}
-
-
 sub _max_fileno {
     my($left, $right) = @_;
 
     return( $left > $right ? $left : $right );
-}
-
-# As we join more resultsets on the right, we need to shift the column indexes
-# up to account for the columns already joined on the left
-# This would probably be better solved by letting a ResultSet's columns have
-# aliases that propogate to derived Resultsets - then we'd be able to refer
-# to them by their name.
-sub resolve_column_indexes_for_final_resultset {
-    my($class, @resultsets) = @_;
-
-    my @column_adjustment = ( 0 );
-    for (my $i = 1; $i < @resultsets; $i++) {
-        push @column_adjustment, $resultsets[$i-1]->width();
-    }
-    return @column_adjustment;
 }
 
 1;
