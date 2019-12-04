@@ -214,6 +214,39 @@ sub _parse_join_clauses {
     return @joins;
 }
 
+sub _parse_select_clauses {
+    my($self, $select_exprs, @resultsets) = @_;
+
+    my @selects = split(',', $select_exprs);
+
+    my @columns_to_extract = map {
+            $self->column_idx_for_name($_)
+        } @selects;
+
+    unless (@columns_to_extract) {
+        # No select clause, return everything
+        for (my $i = 0; $i < $self->width(); $i++) {
+            $columns_to_extract[$i] = $i;
+        }
+    }
+
+    return @columns_to_extract;
+}
+
+sub select {
+    my($self, $select_exprs) = @_;
+
+    my @columns_to_show = $self->_parse_select_clauses($select_exprs);
+
+    my @rows;
+    $self->foreach(sub {
+        my $row = shift;
+        push @rows, [ @$row[@columns_to_show] ];
+    });
+
+    __PACKAGE__->new(\@rows);
+}
+
 sub _max_fileno {
     my($left, $right) = @_;
 
