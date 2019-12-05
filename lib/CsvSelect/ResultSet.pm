@@ -46,6 +46,7 @@ sub name_for_column_idx {
 sub column_idx_for_name {
     my($self, $name) = @_;
 
+    $name = uc($name);
     for (my $idx = 0; $idx < @{ $self->_column_names }; $idx++) {
         foreach my $alias ( @{ $self->_column_names->[$idx] } ) {
             return $idx if $alias eq $name;
