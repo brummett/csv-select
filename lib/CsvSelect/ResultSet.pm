@@ -30,7 +30,7 @@ sub rows {
 
 sub add_column_name {
     my($self, $idx, $name) = @_;
-    my $list = $self->{column_names}->[$idx] ||= [];
+    my $list = $self->_column_names->[$idx] ||= [];
     push @$list, $name;
 }
 
@@ -40,14 +40,14 @@ sub _column_names {
 
 sub name_for_column_idx {
     my($self, $idx) = @_;
-    return $self->{column_names}->[$idx]->[0];
+    return $self->_column_names->[$idx]->[0];
 }
 
 sub column_idx_for_name {
     my($self, $name) = @_;
 
-    for (my $idx = 0; $idx < @{ $self->{column_names} }; $idx++) {
-        foreach my $alias ( @{ $self->{column_names}->[$idx] } ) {
+    for (my $idx = 0; $idx < @{ $self->_column_names }; $idx++) {
+        foreach my $alias ( @{ $self->_column_names->[$idx] } ) {
             return $idx if $alias eq $name;
         }
     }
