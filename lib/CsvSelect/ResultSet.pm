@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Carp qw(croak);
+use Text::Csv;
 
 use CsvSelect::Where;
 
@@ -36,6 +37,13 @@ sub add_column_name {
 
 sub _column_names {
     return shift->{column_names}
+}
+
+# The convention is that the first name/alias for each column is the "name"
+sub headers {
+    my $self = shift;
+    my @headers = map { $_->[0] } @{ $self->_column_names };
+    return @headers;
 }
 
 sub name_for_column_idx {
@@ -255,6 +263,20 @@ sub _max_fileno {
     my($left, $right) = @_;
 
     return( $left > $right ? $left : $right );
+}
+
+sub write_to {
+    my($self, $filename) = @_;
+
+    my $fh = IO::File->new($filename, 'w')
+                || die "Can't open $filename for writing: $!";
+    my $csvparser = Text::CSV->new({ binary => 1, auto_diag => 1});
+
+    $csvparser->say($fh, [ $self->headers ] );
+    $self->foreach(sub {
+        my $row = shift;
+        $csvparser->say($fh, $row);
+    });
 }
 
 1;
