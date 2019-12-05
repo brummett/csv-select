@@ -29,6 +29,7 @@ sub run {
 
     $result = $result->select($show);
 
+    $output = '/dev/tty' unless ($output);
     $result->write_to($output);
 }
 
