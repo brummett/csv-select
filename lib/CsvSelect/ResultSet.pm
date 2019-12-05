@@ -245,7 +245,10 @@ sub select {
         push @rows, [ @$row[@columns_to_show] ];
     });
 
-    __PACKAGE__->new(\@rows);
+    my @original_columns = @{ $self->_column_names };
+    my @column_names = @original_columns[@columns_to_show];
+
+    __PACKAGE__->new(\@rows, \@column_names);
 }
 
 sub _max_fileno {
