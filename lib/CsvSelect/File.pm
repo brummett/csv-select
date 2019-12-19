@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use IO::File;
-use Text::Csv;
+use Text::CSV;
 
 use CsvSelect::ResultSet;
 

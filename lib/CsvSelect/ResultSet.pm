@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Carp qw(croak);
-use Text::Csv;
+use Text::CSV;
 
 use CsvSelect::Where;
 
